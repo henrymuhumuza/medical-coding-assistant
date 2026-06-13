@@ -1,4 +1,4 @@
-import { getCodesInventory } from '../src/backend/codingService.ts';
+import { getCatalogInventory } from '../src/vercel/csvService.ts';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    return res.status(200).json(await getCodesInventory());
+    return res.status(200).json(getCatalogInventory());
   } catch (error: any) {
     console.error('[API /codes] Failed:', error);
     return res.status(500).json({

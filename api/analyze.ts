@@ -1,4 +1,4 @@
-import { analyzeClinicalText } from '../src/backend/codingService.ts';
+import { analyzeCatalog } from '../src/vercel/csvService.ts';
 
 function readBody(req: any) {
   if (typeof req.body === 'string') {
@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Clinical note or query string is required.' });
     }
 
-    return res.status(200).json(await analyzeClinicalText(note));
+    return res.status(200).json(analyzeCatalog(note));
   } catch (error: any) {
     console.error('[API /analyze] Semantic search failed:', error);
     return res.status(500).json({

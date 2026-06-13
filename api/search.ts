@@ -1,4 +1,4 @@
-import { searchCodesByQuery } from '../src/backend/codingService.ts';
+import { searchCatalog } from '../src/vercel/csvService.ts';
 
 function readBody(req: any) {
   if (typeof req.body === 'string') {
@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Search query string is required.' });
     }
 
-    return res.status(200).json(await searchCodesByQuery(query));
+    return res.status(200).json(searchCatalog(query));
   } catch (error: any) {
     console.error('[API /search] Failed:', error);
     return res.status(500).json({
