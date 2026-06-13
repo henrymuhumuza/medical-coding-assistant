@@ -334,6 +334,39 @@ function bestMatchedText(code: Code, context: ReturnType<typeof buildSearchConte
   return bestToken || originalNote.slice(0, 120);
 }
 
+function buildLexicalAnalyzeResponse(
+  rankedCandidates: Array<Code & { score?: number }>,
+  context: ReturnType<typeof buildSearchContext>,
+  note: string,
+  candidateCount: number,
+  reason = 'Embeddings were unavailable, so local keyword ranking was used.'
+): AnalyzeResponse {
+  const toMatch = (c: Code & { score?: number }) => ({
+    code: c.code,
+    description: c.description,
+    type: c.type,
+    category: c.category,
+    confidence: Math.min(1, Math.max(0.28, c.score || 0.28)),
+    matchedText: bestMatchedText(c, context, note),
+  });
+
+  const diagnoses = rankedCandidates
+    .filter(c => c.type === CodeType.ICD10)
+    .slice(0, 25)
+    .map(toMatch);
+
+  const procedures = rankedCandidates
+    .filter(c => c.type === CodeType.CPT || c.type === CodeType.HCPCS)
+    .slice(0, 25)
+    .map(toMatch);
+
+  return {
+    diagnoses,
+    procedures,
+    explanation: `Local AI search checked ${candidateCount} matching code records and returned the closest ICD-10, CPT, and HCPCS matches. ${reason}`,
+  };
+}
+
 export async function analyzeClinicalText(note: string): Promise<AnalyzeResponse> {
   await ensureDbReady();
 
@@ -395,7 +428,17 @@ export async function analyzeClinicalText(note: string): Promise<AnalyzeResponse
     .sort((a, b) => (b.score || 0) - (a.score || 0));
 
   const slicedCandidates = lexicalRankedCandidates.slice(0, 500);
-  const pipelineInstance = await getEmbedder();
+  if (slicedCandidates.length === 0) {
+    return { diagnoses: [], procedures: [], explanation: 'No matching code records were found for that search.' };
+  }
+
+  let pipelineInstance: any;
+  try {
+    pipelineInstance = await getEmbedder();
+  } catch (error) {
+    console.error('[Embedder] Model initialization failed; using lexical fallback:', error);
+    return buildLexicalAnalyzeResponse(lexicalRankedCandidates, searchContext, note, candidates.length);
+  }
 
   const expandedQueryText = uniqueValues([
     note,
@@ -403,18 +446,26 @@ export async function analyzeClinicalText(note: string): Promise<AnalyzeResponse
     ...searchContext.phrases,
     ...searchContext.terms.slice(0, 35),
   ], 45).join('. ');
-  const queryTensor = await pipelineInstance(expandedQueryText, { pooling: 'mean', normalize: true });
-  const queryVector = Array.from(queryTensor.data) as number[];
+  let queryVector: number[];
+  let tensorData: any;
+  let hiddenDim: number;
 
-  const candidateTexts = slicedCandidates.map(c => {
-    const typeLabel = c.type === CodeType.ICD10 ? 'ICD-10 diagnosis' : c.type === CodeType.HCPCS ? 'HCPCS service or supply' : 'CPT procedure';
-    return `${c.code}. ${typeLabel}. ${c.description}. Category: ${c.category}.`;
-  });
-  const candidatesTensor = await pipelineInstance(candidateTexts, { pooling: 'mean', normalize: true });
+  try {
+    const queryTensor = await pipelineInstance(expandedQueryText, { pooling: 'mean', normalize: true });
+    queryVector = Array.from(queryTensor.data) as number[];
 
-  const tensorData = candidatesTensor.data;
-  const dims = candidatesTensor.dims;
-  const hiddenDim = dims[1];
+    const candidateTexts = slicedCandidates.map(c => {
+      const typeLabel = c.type === CodeType.ICD10 ? 'ICD-10 diagnosis' : c.type === CodeType.HCPCS ? 'HCPCS service or supply' : 'CPT procedure';
+      return `${c.code}. ${typeLabel}. ${c.description}. Category: ${c.category}.`;
+    });
+    const candidatesTensor = await pipelineInstance(candidateTexts, { pooling: 'mean', normalize: true });
+
+    tensorData = candidatesTensor.data;
+    hiddenDim = candidatesTensor.dims[1];
+  } catch (error) {
+    console.error('[Embedder] Embedding run failed; using lexical fallback:', error);
+    return buildLexicalAnalyzeResponse(lexicalRankedCandidates, searchContext, note, candidates.length);
+  }
 
   const scoredCandidates = slicedCandidates.map((c, i) => {
     const start = i * hiddenDim;
