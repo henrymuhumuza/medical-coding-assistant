@@ -1,0 +1,17 @@
+{
+  "name": "Medical Coding Assistant",
+  "short_name": "Med Codes",
+  "description": "Offline medical code search for ICD-10, CPT, and HCPCS.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f0",
+  "theme_color": "#1a1a18",
+  "icons": [
+    {
+      "src": "/medical-coding-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

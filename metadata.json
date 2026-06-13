@@ -1,0 +1,6 @@
+{
+  "name": "Medical Coding Assistant",
+  "description": "An AI-assisted medical coding MVP helper for ICD-10-CM and CPT codes from clinical notes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

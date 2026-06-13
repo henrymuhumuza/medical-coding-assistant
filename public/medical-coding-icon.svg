@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Medical Coding Assistant</title>
+  <desc id="desc">A simple book icon with a centered medical cross.</desc>
+  <rect width="512" height="512" rx="96" fill="#f4f4f0"/>
+  <path
+    d="M150 104h196c26 0 46 20 46 46v258H178c-36 0-66-30-66-66V142c0-21 17-38 38-38Z"
+    fill="#1a1a18"
+  />
+  <path
+    d="M166 104h196c21 0 38 17 38 38v258H178c-25 0-46-21-46-46V138c0-19 15-34 34-34Z"
+    fill="#2c2c28"
+  />
+  <path
+    d="M166 104c-19 0-34 15-34 34v216c0-25 21-46 46-46h222V142c0-21-17-38-38-38H166Z"
+    fill="#fdfdfc"
+  />
+  <path d="M178 308h222v92H178c-25 0-46-21-46-46s21-46 46-46Z" fill="#eaeae4"/>
+  <path d="M177 334h186" stroke="#cbcbbf" stroke-width="14" stroke-linecap="round"/>
+  <path d="M177 374h160" stroke="#cbcbbf" stroke-width="14" stroke-linecap="round"/>
+  <path d="M244 136h44v48h48v44h-48v48h-44v-48h-48v-44h48v-48Z" fill="#1a1a18"/>
+  <path d="M112 150c0-26 21-46 46-46h18v204h-18c-25 0-46 21-46 46V150Z" fill="#1a1a18"/>
+</svg>
