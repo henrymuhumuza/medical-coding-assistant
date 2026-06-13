@@ -115,7 +115,7 @@ async function fetchCandidates(query: string, limit = 900): Promise<CodeRecord[]
 
   if (clauses.length === 0) return [];
 
-  const result = await client.execute({
+  let result = await client.execute({
     sql: `
       SELECT code, type, description, category
       FROM codes
@@ -124,6 +124,21 @@ async function fetchCandidates(query: string, limit = 900): Promise<CodeRecord[]
     `,
     args,
   });
+
+  if (result.rows.length === 0 && query.trim().length >= 2) {
+    const normalized = normalize(query);
+    result = await client.execute({
+      sql: `
+        SELECT code, type, description, category
+        FROM codes
+        WHERE search_text LIKE ?
+           OR description LIKE ?
+           OR code LIKE ?
+        LIMIT ${limit}
+      `,
+      args: [`%${normalized}%`, `%${query}%`, `%${query}%`],
+    });
+  }
 
   return result.rows.map((row: any) => ({
     code: String(row.code),
