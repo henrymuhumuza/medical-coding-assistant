@@ -1,0 +1,14 @@
+{
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/*.ts": {
+      "memory": 1024,
+      "maxDuration": 60,
+      "includeFiles": [
+        "clinical_coding.db",
+        "data/**"
+      ]
+    }
+  }
+}

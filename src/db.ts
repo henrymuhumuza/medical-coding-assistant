@@ -4,6 +4,7 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { open, Database } from 'sqlite';
 import sqlite3 from 'sqlite3';
@@ -179,9 +180,19 @@ export async function getDb(): Promise<DbInterface> {
 }
 
 export async function initDb() {
-  const dbFile = path.resolve(process.cwd(), 'clinical_coding.db');
+  const bundledDbFile = path.resolve(process.cwd(), 'clinical_coding.db');
+  const isVercelRuntime = process.env.VERCEL === '1';
+  const dbFile = isVercelRuntime ? path.join(os.tmpdir(), 'clinical_coding.db') : bundledDbFile;
+  let usingBundledDbCopy = false;
   
   try {
+    if (isVercelRuntime && fs.existsSync(bundledDbFile)) {
+      if (!fs.existsSync(dbFile)) {
+        fs.copyFileSync(bundledDbFile, dbFile);
+      }
+      usingBundledDbCopy = true;
+    }
+
     // Open SQLite database
     const db = await open({
       filename: dbFile,
@@ -213,15 +224,17 @@ export async function initDb() {
       await db.run('COMMIT');
     }
 
+    const shouldImportCsv = !(isVercelRuntime && usingBundledDbCopy && dbCount.count > 0);
+
     // Verify and scan custom data directory
     const dataDir = path.resolve(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
+    if (!isVercelRuntime && !fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
     // Look for icd_10_cm.csv
     const icdPath = path.join(dataDir, 'icd_10_cm.csv');
-    if (fs.existsSync(icdPath)) {
+    if (shouldImportCsv && fs.existsSync(icdPath)) {
       console.log('[SQLiteDB] Custom icd_10_cm.csv detected. Parsing and importing...');
       const content = fs.readFileSync(icdPath, 'utf8');
       const parsed = parseCSV(content, false);
@@ -245,7 +258,7 @@ export async function initDb() {
 
     // Look for cpt.csv
     const cptPath = path.join(dataDir, 'cpt.csv');
-    if (fs.existsSync(cptPath)) {
+    if (shouldImportCsv && fs.existsSync(cptPath)) {
       console.log('[SQLiteDB] Custom cpt.csv detected. Parsing and importing...');
       const content = fs.readFileSync(cptPath, 'utf8');
       const parsed = parseCSV(content, true);
