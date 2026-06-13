@@ -1,4 +1,4 @@
-import { runSearch } from './search';
+import { runDirectTursoSearch } from '../src/vercel/directTursoSearch.ts';
 
 function readBody(req: any) {
   if (typeof req.body === 'string') {
@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Clinical note or query string is required.' });
     }
 
-    const results = await runSearch(note);
+    const results = await runDirectTursoSearch(note);
     const diagnoses = results.icd.slice(0, 25).map(r => ({
       code: r.code,
       description: r.description,
