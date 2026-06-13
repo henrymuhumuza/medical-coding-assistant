@@ -25,11 +25,15 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-      return res.status(200).json(await runDirectTursoSearch(query));
+      const results = await runDirectTursoSearch(query);
+      if (results.icd.length + results.cpt.length + results.hcpcs.length > 0) {
+        return res.status(200).json(results);
+      }
+      console.warn('[API /search] Turso returned no matches; using local catalog.');
     } catch (error) {
       console.error('[API /search] Turso unavailable; using local catalog:', error);
-      return res.status(200).json(searchCatalog(query));
     }
+    return res.status(200).json(searchCatalog(query));
   } catch (error: any) {
     console.error('[API /search] Failed:', error);
     return res.status(500).json({

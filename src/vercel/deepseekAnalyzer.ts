@@ -14,6 +14,26 @@ interface MatchResult {
   matchedText: string;
 }
 
+const DEEPSEEK_TIMEOUT_MS = 12000;
+const TURSO_LOOKUP_TIMEOUT_MS = 4500;
+
+function timeoutError(label: string, timeoutMs: number) {
+  return new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(timeoutError(label, timeoutMs)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function uniqueValues(values: string[], limit = 12) {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -63,8 +83,12 @@ async function extractMedicalSearchTerms(note: string): Promise<DeepSeekExtracti
     throw new Error('DEEPSEEK_API_KEY is missing. Add it to Vercel environment variables and .env.local.');
   }
 
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT_MS);
+
   const response = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
+    signal: controller.signal,
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -85,7 +109,7 @@ async function extractMedicalSearchTerms(note: string): Promise<DeepSeekExtracti
         },
       ],
     }),
-  });
+  }).finally(() => clearTimeout(abortTimer));
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
@@ -136,7 +160,7 @@ async function searchTerms(
 ) {
   await Promise.all(terms.map(async (term) => {
     try {
-      onResults(term, await runDirectTursoSearch(term));
+      onResults(term, await withTimeout(runDirectTursoSearch(term), TURSO_LOOKUP_TIMEOUT_MS, 'Turso lookup'));
     } catch (error) {
       console.error(`[DeepSeek] Turso lookup failed for "${term}":`, error);
     }

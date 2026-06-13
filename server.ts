@@ -42,11 +42,16 @@ app.post('/api/search', async (req: Request, res: Response, next: NextFunction) 
     }
 
     try {
-      res.json(await runDirectTursoSearch(query));
+      const results = await runDirectTursoSearch(query);
+      if (results.icd.length + results.cpt.length + results.hcpcs.length > 0) {
+        res.json(results);
+        return;
+      }
+      console.warn('[Turso] Local search returned no matches; using SQLite fallback.');
     } catch (error) {
       console.error('[Turso] Local search failed; using SQLite fallback:', error);
-      res.json(await searchCodesByQuery(query));
     }
+    res.json(await searchCodesByQuery(query));
   } catch (error) {
     next(error);
   }
