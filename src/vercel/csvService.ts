@@ -19,9 +19,12 @@ const fallbackCatalog: CodeRecord[] = [
   { code: 'I10', type: 'ICD10', description: 'Essential hypertension', category: 'Diagnoses' },
   { code: 'N39.0', type: 'ICD10', description: 'Urinary tract infection, site not specified', category: 'Diagnoses' },
   { code: 'R07.9', type: 'ICD10', description: 'Chest pain, unspecified', category: 'Diagnoses' },
+  { code: 'E78.00', type: 'ICD10', description: 'Pure hypercholesterolemia, unspecified', category: 'Diagnoses' },
+  { code: 'B54', type: 'ICD10', description: 'Unspecified malaria', category: 'Diagnoses' },
   { code: '81001', type: 'CPT', description: 'Urinalysis, automated, with microscopy', category: 'Laboratory' },
   { code: '81002', type: 'CPT', description: 'Urinalysis, non-automated, without microscopy', category: 'Laboratory' },
   { code: '93000', type: 'CPT', description: 'Electrocardiogram, routine ECG with interpretation and report', category: 'Medicine' },
+  { code: '80061', type: 'CPT', description: 'Lipid panel', category: 'Laboratory' },
   { code: '83036', type: 'CPT', description: 'Hemoglobin A1c lab monitoring', category: 'Laboratory' },
   { code: 'J1885', type: 'HCPCS', description: 'Injection, ketorolac tromethamine, up to 15 mg', category: 'Drugs' },
 ];
@@ -36,6 +39,10 @@ const aliases: Record<string, string[]> = {
   ekg: ['ecg', 'electrocardiogram'],
   ecg: ['ekg', 'electrocardiogram'],
   'high blood pressure': ['hypertension'],
+  cholesterol: ['hypercholesterolemia', 'hyperlipidemia', 'lipid disorder', 'lipid panel'],
+  'high cholesterol': ['hypercholesterolemia', 'pure hypercholesterolemia', 'hyperlipidemia', 'lipid disorder', 'lipid panel'],
+  lipids: ['lipid panel', 'hyperlipidemia', 'cholesterol'],
+  malaria: ['plasmodium', 'malarial', 'falciparum', 'vivax', 'malaria'],
   flu: ['influenza', 'vaccine'],
 };
 
@@ -161,6 +168,13 @@ function scoreRecord(record: CodeRecord, query: string) {
   }
   if (normalized.includes('urine test') && description.includes('urinalysis')) {
     score += 0.5;
+  }
+  if ((normalized.includes('high cholesterol') || normalized.includes('cholesterol') || normalized.includes('lipid')) &&
+    (description.includes('hypercholesterolemia') || description.includes('hyperlipidemia') || description.includes('lipid'))) {
+    score += 0.65;
+  }
+  if (normalized.includes('malaria') && (description.includes('malaria') || description.includes('malarial') || description.includes('plasmodium'))) {
+    score += 0.75;
   }
 
   return Math.min(1, score);

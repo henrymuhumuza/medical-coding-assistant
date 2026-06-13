@@ -27,6 +27,10 @@ function fallbackSearch(query: string) {
   return { icd, cpt, hcpcs: [] };
 }
 
+function hasSearchResults(result: any) {
+  return Boolean(result?.icd?.length || result?.cpt?.length || result?.hcpcs?.length);
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -40,9 +44,23 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { searchTurso } = await import('../src/vercel/tursoService.ts');
-    return res.status(200).json(await searchTurso(query));
+    const result = await searchTurso(query);
+    if (hasSearchResults(result)) {
+      return res.status(200).json(result);
+    }
   } catch (error) {
-    console.error('[API /search] Turso unavailable; using fallback:', error);
-    return res.status(200).json(fallbackSearch(query));
+    console.error('[API /search] Turso unavailable; trying CSV fallback:', error);
   }
+
+  try {
+    const { searchCatalog } = await import('../src/vercel/csvService.ts');
+    const result = searchCatalog(query);
+    if (hasSearchResults(result)) {
+      return res.status(200).json(result);
+    }
+  } catch (error) {
+    console.error('[API /search] CSV fallback unavailable; using tiny fallback:', error);
+  }
+
+  return res.status(200).json(fallbackSearch(query));
 }

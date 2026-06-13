@@ -58,6 +58,10 @@ function fallbackAnalyze(note: string) {
   };
 }
 
+function hasAnalyzeResults(result: any) {
+  return Boolean(result?.diagnoses?.length || result?.procedures?.length);
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -71,9 +75,23 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { analyzeTurso } = await import('../src/vercel/tursoService.ts');
-    return res.status(200).json(await analyzeTurso(note));
+    const result = await analyzeTurso(note);
+    if (hasAnalyzeResults(result)) {
+      return res.status(200).json(result);
+    }
   } catch (error) {
-    console.error('[API /analyze] Turso unavailable; using fallback:', error);
-    return res.status(200).json(fallbackAnalyze(note));
+    console.error('[API /analyze] Turso unavailable; trying CSV fallback:', error);
   }
+
+  try {
+    const { analyzeCatalog } = await import('../src/vercel/csvService.ts');
+    const result = analyzeCatalog(note);
+    if (hasAnalyzeResults(result)) {
+      return res.status(200).json(result);
+    }
+  } catch (error) {
+    console.error('[API /analyze] CSV fallback unavailable; using tiny fallback:', error);
+  }
+
+  return res.status(200).json(fallbackAnalyze(note));
 }

@@ -15,7 +15,10 @@ const fallbackCatalog: CodeRecord[] = [
   { code: 'E11.9', type: 'ICD10', description: 'Type 2 diabetes mellitus without complications', category: 'Diagnoses' },
   { code: 'I10', type: 'ICD10', description: 'Essential hypertension', category: 'Diagnoses' },
   { code: 'N39.0', type: 'ICD10', description: 'Urinary tract infection, site not specified', category: 'Diagnoses' },
+  { code: 'E78.00', type: 'ICD10', description: 'Pure hypercholesterolemia, unspecified', category: 'Diagnoses' },
+  { code: 'B54', type: 'ICD10', description: 'Unspecified malaria', category: 'Diagnoses' },
   { code: '81001', type: 'CPT', description: 'Urinalysis, automated, with microscopy', category: 'Laboratory' },
+  { code: '80061', type: 'CPT', description: 'Lipid panel', category: 'Laboratory' },
   { code: '83036', type: 'CPT', description: 'Hemoglobin A1c lab monitoring', category: 'Laboratory' },
 ];
 
@@ -29,6 +32,10 @@ const aliases: Record<string, string[]> = {
   ekg: ['ecg', 'electrocardiogram'],
   ecg: ['ekg', 'electrocardiogram'],
   'high blood pressure': ['hypertension'],
+  cholesterol: ['hypercholesterolemia', 'hyperlipidemia', 'lipid disorder', 'lipid panel'],
+  'high cholesterol': ['hypercholesterolemia', 'pure hypercholesterolemia', 'hyperlipidemia', 'lipid disorder', 'lipid panel'],
+  lipids: ['lipid panel', 'hyperlipidemia', 'cholesterol'],
+  malaria: ['plasmodium', 'malarial', 'falciparum', 'vivax', 'malaria'],
   flu: ['influenza', 'vaccine'],
 };
 
@@ -93,6 +100,13 @@ function scoreRecord(record: CodeRecord, query: string) {
   }
   if (normalized.includes('urine test') && description.includes('urinalysis')) {
     score += 0.55;
+  }
+  if ((normalized.includes('high cholesterol') || normalized.includes('cholesterol') || normalized.includes('lipid')) &&
+    (description.includes('hypercholesterolemia') || description.includes('hyperlipidemia') || description.includes('lipid'))) {
+    score += 0.65;
+  }
+  if (normalized.includes('malaria') && (description.includes('malaria') || description.includes('malarial') || description.includes('plasmodium'))) {
+    score += 0.75;
   }
   if (normalized.includes('high blood sugar') && description.includes('hypertension')) {
     score -= 0.5;
@@ -161,8 +175,10 @@ export async function searchTurso(query: string) {
   try {
     const candidates = await fetchCandidates(query);
     scored = candidates
-      .map(record => ({ ...record, score: scoreRecord(record, query) }))
-      .filter(record => (record.score || 0) > 0)
+      .map(record => {
+        const score = scoreRecord(record, query);
+        return { ...record, score: score > 0 ? score : 0.08 };
+      })
       .sort((a, b) => (b.score || 0) - (a.score || 0));
   } catch (error) {
     console.error('[Turso] Search failed, using fallback catalog:', error);
