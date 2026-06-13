@@ -9,8 +9,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import {
+  analyzeClinicalText,
   ensureDbReady,
   getCodesInventory,
+  searchCodesByQuery,
 } from './src/backend/codingService.ts';
 import { runDeepSeekCodeSearch } from './src/vercel/deepseekAnalyzer.ts';
 import { runDirectTursoSearch } from './src/vercel/directTursoSearch.ts';
@@ -39,7 +41,12 @@ app.post('/api/search', async (req: Request, res: Response, next: NextFunction) 
       return;
     }
 
-    res.json(await runDirectTursoSearch(query));
+    try {
+      res.json(await runDirectTursoSearch(query));
+    } catch (error) {
+      console.error('[Turso] Local search failed; using SQLite fallback:', error);
+      res.json(await searchCodesByQuery(query));
+    }
   } catch (error) {
     next(error);
   }
@@ -53,12 +60,17 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(await runDeepSeekCodeSearch(note));
+    try {
+      res.json(await runDeepSeekCodeSearch(note));
+    } catch (error) {
+      console.error('[DeepSeek] AI search failed; using SQLite fallback:', error);
+      res.json(await analyzeClinicalText(note));
+    }
   } catch (error: any) {
-    console.error('[DeepSeek] AI search failed:', error);
+    console.error('[AI] Search fallback failed:', error);
     res.status(500).json({
       error: 'AI Analysis Error',
-      message: error?.message || 'Failed to complete DeepSeek code search. Please try again.',
+      message: error?.message || 'Failed to complete code search. Please try again.',
     });
   }
 });

@@ -130,22 +130,37 @@ function toMatches(records: Array<CodeRecord & { matchedText: string; score: num
     }));
 }
 
+async function searchTerms(
+  terms: string[],
+  onResults: (term: string, results: Awaited<ReturnType<typeof runDirectTursoSearch>>) => void
+) {
+  await Promise.all(terms.map(async (term) => {
+    try {
+      onResults(term, await runDirectTursoSearch(term));
+    } catch (error) {
+      console.error(`[DeepSeek] Turso lookup failed for "${term}":`, error);
+    }
+  }));
+}
+
 export async function runDeepSeekCodeSearch(note: string) {
   const extraction = await extractMedicalSearchTerms(note);
   const diagnosisMap = new Map<string, CodeRecord & { matchedText: string; score: number }>();
   const procedureMap = new Map<string, CodeRecord & { matchedText: string; score: number }>();
 
-  const diagnosisTerms = uniqueValues([...extraction.diagnosisTerms, ...extraction.searchTerms], 10);
-  const procedureTerms = uniqueValues([...extraction.procedureTerms, ...extraction.searchTerms], 10);
+  const diagnosisTerms = uniqueValues([...extraction.diagnosisTerms, ...extraction.searchTerms], 6);
+  const procedureTerms = uniqueValues([...extraction.procedureTerms, ...extraction.searchTerms], 6);
 
-  for (const term of diagnosisTerms) {
-    const results = await runDirectTursoSearch(term);
+  await searchTerms(diagnosisTerms, (term, results) => {
     addRecords(diagnosisMap, results.icd, term, extraction.diagnosisTerms.includes(term) ? 0.18 : 0.08);
-  }
+  });
 
-  for (const term of procedureTerms) {
-    const results = await runDirectTursoSearch(term);
+  await searchTerms(procedureTerms, (term, results) => {
     addRecords(procedureMap, [...results.cpt, ...results.hcpcs], term, extraction.procedureTerms.includes(term) ? 0.18 : 0.08);
+  });
+
+  if (diagnosisMap.size === 0 && procedureMap.size === 0) {
+    throw new Error('No Turso code matches were returned for the extracted search terms.');
   }
 
   return {

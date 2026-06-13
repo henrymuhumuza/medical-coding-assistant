@@ -1,4 +1,5 @@
 import { runDeepSeekCodeSearch } from '../src/vercel/deepseekAnalyzer.ts';
+import { analyzeCatalog } from '../src/vercel/csvService.ts';
 
 function readBody(req: any) {
   if (typeof req.body === 'string') {
@@ -25,10 +26,18 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json(await runDeepSeekCodeSearch(note));
   } catch (error: any) {
-    console.error('[API /analyze] DeepSeek search failed:', error);
-    return res.status(500).json({
-      error: 'AI Analysis Error',
-      message: error?.message || 'Failed to complete DeepSeek code search. Please try again.',
-    });
+    console.error('[API /analyze] DeepSeek search failed; using local catalog:', error);
+    try {
+      return res.status(200).json({
+        ...analyzeCatalog(readBody(req).note || ''),
+        explanation: 'AI extraction was unavailable, so the app used local code-catalog matching instead.',
+      });
+    } catch (fallbackError: any) {
+      console.error('[API /analyze] Local fallback failed:', fallbackError);
+      return res.status(500).json({
+        error: 'AI Analysis Error',
+        message: fallbackError?.message || error?.message || 'Failed to complete code search. Please try again.',
+      });
+    }
   }
 }
