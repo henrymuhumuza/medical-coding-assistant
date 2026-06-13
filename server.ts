@@ -9,13 +9,12 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import {
-  analyzeClinicalText,
   ensureDbReady,
   getCodesInventory,
   searchCodesByQuery,
 } from './src/backend/codingService.ts';
-import { runDeepSeekCodeSearch } from './src/vercel/deepseekAnalyzer.ts';
 import { runDirectTursoSearch } from './src/vercel/directTursoSearch.ts';
+import { analyzeTurso } from './src/vercel/tursoService.ts';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -65,16 +64,11 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
       return;
     }
 
-    try {
-      res.json(await runDeepSeekCodeSearch(note));
-    } catch (error) {
-      console.error('[DeepSeek] AI search failed; using SQLite fallback:', error);
-      res.json(await analyzeClinicalText(note));
-    }
+    res.json(await analyzeTurso(note));
   } catch (error: any) {
-    console.error('[AI] Search fallback failed:', error);
+    console.error('[AI] Search failed:', error);
     res.status(500).json({
-      error: 'AI Analysis Error',
+      error: 'Search Error',
       message: error?.message || 'Failed to complete code search. Please try again.',
     });
   }

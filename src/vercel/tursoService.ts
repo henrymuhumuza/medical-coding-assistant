@@ -39,6 +39,12 @@ const aliases: Record<string, string[]> = {
   flu: ['influenza', 'vaccine'],
 };
 
+const stopWords = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'have',
+  'in', 'into', 'is', 'it', 'needs', 'of', 'on', 'or', 'patient', 'pt', 'the',
+  'to', 'was', 'were', 'with', 'without',
+]);
+
 function getClient() {
   const url = process.env.TURSO_DATABASE_URL?.trim();
   const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
@@ -56,7 +62,11 @@ function normalize(value: string) {
 
 function expandQuery(query: string) {
   const normalized = normalize(query);
-  const terms = new Set(normalized.split(' ').filter(token => token.length >= 2));
+  const terms = new Set(
+    normalized
+      .split(' ')
+      .filter(token => token.length >= 2 && !stopWords.has(token))
+  );
   terms.add(normalized);
 
   for (const [phrase, extras] of Object.entries(aliases)) {
@@ -71,7 +81,10 @@ function expandQuery(query: string) {
 
   return {
     normalized,
-    terms: Array.from(terms).filter(term => term.length >= 2).slice(0, 28),
+    terms: Array.from(terms)
+      .filter(term => term.length >= 2 && (!stopWords.has(term) || term.includes(' ')))
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 28),
   };
 }
 
@@ -98,6 +111,11 @@ function scoreRecord(record: CodeRecord, query: string) {
   if (normalized.includes('high blood sugar') && description.includes('type 2 diabetes') && description.includes('hyperglycemia')) {
     score += 0.6;
   }
+  if (record.type !== 'ICD10' &&
+    (normalized.includes('a1c') || normalized.includes('hemoglobin')) &&
+    (description.includes('a1c') || description.includes('glycosylated') || description.includes('hemoglobin'))) {
+    score += 0.65;
+  }
   if (normalized.includes('urine test') && description.includes('urinalysis')) {
     score += 0.55;
   }
@@ -115,7 +133,7 @@ function scoreRecord(record: CodeRecord, query: string) {
   return Math.min(1, Math.max(0, score));
 }
 
-async function fetchCandidates(query: string, limit = 900): Promise<CodeRecord[]> {
+async function fetchCandidates(query: string, limit = 4500): Promise<CodeRecord[]> {
   const { terms } = expandQuery(query);
   const client = getClient();
 
@@ -129,32 +147,45 @@ async function fetchCandidates(query: string, limit = 900): Promise<CodeRecord[]
 
   if (clauses.length === 0) return [];
 
-  let result = await client.execute({
-    sql: `
-      SELECT code, type, description, category
-      FROM codes
-      WHERE ${clauses.join(' OR ')}
-      LIMIT ${limit}
-    `,
-    args,
-  });
+  const rows: any[] = [];
+  const perTypeLimit = Math.ceil(limit / 3);
 
-  if (result.rows.length === 0 && query.trim().length >= 2) {
-    const normalized = normalize(query);
-    result = await client.execute({
+  for (const type of ['ICD10', 'CPT', 'HCPCS']) {
+    const result = await client.execute({
       sql: `
         SELECT code, type, description, category
         FROM codes
-        WHERE search_text LIKE ?
-           OR description LIKE ?
-           OR code LIKE ?
-        LIMIT ${limit}
+        WHERE type = ?
+          AND (${clauses.join(' OR ')})
+        LIMIT ${perTypeLimit}
       `,
-      args: [`%${normalized}%`, `%${query}%`, `%${query}%`],
+      args: [type, ...args],
     });
+    rows.push(...result.rows);
   }
 
-  return result.rows.map((row: any) => ({
+  if (rows.length === 0 && query.trim().length >= 2) {
+    const normalized = normalize(query);
+    for (const type of ['ICD10', 'CPT', 'HCPCS']) {
+      const result = await client.execute({
+        sql: `
+          SELECT code, type, description, category
+          FROM codes
+          WHERE type = ?
+            AND (
+              search_text LIKE ?
+              OR description LIKE ?
+              OR code LIKE ?
+            )
+          LIMIT ${perTypeLimit}
+        `,
+        args: [type, `%${normalized}%`, `%${query}%`, `%${query}%`],
+      });
+      rows.push(...result.rows);
+    }
+  }
+
+  return rows.map((row: any) => ({
     code: String(row.code),
     type: String(row.type) as CodeType,
     description: String(row.description),
@@ -180,6 +211,10 @@ export async function searchTurso(query: string) {
         return { ...record, score: score > 0 ? score : 0.08 };
       })
       .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    if (scored.length === 0) {
+      scored = rankedFallback(query);
+    }
   } catch (error) {
     console.error('[Turso] Search failed, using fallback catalog:', error);
     scored = rankedFallback(query);

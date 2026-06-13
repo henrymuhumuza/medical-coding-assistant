@@ -45,6 +45,7 @@ export default function DbExplorer() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setActiveFilter('ALL');
     try {
       if (searchQuery.trim() === '') {
         const data = await getInventory();
@@ -52,7 +53,7 @@ export default function DbExplorer() {
       } else {
         const data = await searchCodes(searchQuery);
         // Concatenate categorized codes into a unified flat list
-        setCodes([...data.icd, ...data.cpt, ...data.hcpcs]);
+        setCodes([...data.icd, ...data.cpt, ...data.hcpcs].sort((a, b) => (b.score || 0) - (a.score || 0)));
       }
     } catch (err) {
       console.error('Search query failed:', err);

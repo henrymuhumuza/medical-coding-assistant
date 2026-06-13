@@ -41,7 +41,7 @@ export default function NoteAnalyzer({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4.5 h-4.5 stroke-[1.5] text-[#1a1a18]" />
             <span className="font-heading text-sm font-bold text-[#1a1a18]">
-              AI Clinical Search
+              Clinical Code Search
             </span>
           </div>
           <div className="flex items-center gap-2.5">
@@ -97,7 +97,7 @@ export default function NoteAnalyzer({
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Search with AI</span>
+                <span>Search Codes</span>
               </>
             )}
           </button>

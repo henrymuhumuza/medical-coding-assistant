@@ -111,7 +111,7 @@ export default function App() {
               Medical Coding Assistant
             </h1>
             <p className="font-mono text-[10px] text-[#78786a] uppercase tracking-wider">
-              ICD-10 | CPT | HCPCS | AI Search
+              ICD-10 | CPT | HCPCS | Smart Search
             </p>
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function App() {
 
             {errorText && (
               <div className="p-3 bg-red-50 border border-red-300 text-red-800 rounded text-xs space-y-1" id="analysis-error-banner">
-                <p className="font-semibold">Extraction execution interrupted</p>
+                <p className="font-semibold">Search could not complete</p>
                 <p className="text-[11px] opacity-90">{errorText}</p>
               </div>
             )}
@@ -166,7 +166,7 @@ export default function App() {
                 }`}
             >
               <Sparkles className="w-4.5 h-4.5 stroke-[1.5]" />
-              AI SEARCH
+                SMART SEARCH
             </button>
             <button
               onClick={() => setActiveTab('DB')}
