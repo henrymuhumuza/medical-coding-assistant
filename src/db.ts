@@ -6,8 +6,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { open, Database } from 'sqlite';
-import sqlite3 from 'sqlite3';
 import { CodeType, Code } from './types.ts';
 
 // In-Memory Database store representing the seeded standard clinic codes
@@ -193,10 +191,14 @@ export async function initDb() {
       usingBundledDbCopy = true;
     }
 
+    const sqlite = await import('sqlite');
+    const sqlite3Module = await import('sqlite3');
+    const sqlite3Driver = (sqlite3Module as any).default || sqlite3Module;
+
     // Open SQLite database
-    const db = await open({
+    const db = await sqlite.open({
       filename: dbFile,
-      driver: sqlite3.Database
+      driver: sqlite3Driver.Database
     });
 
     // Create table schema

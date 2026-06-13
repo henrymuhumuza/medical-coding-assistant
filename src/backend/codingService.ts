@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { pipeline } from '@xenova/transformers';
 import { getDb, initDb } from '../db.ts';
 import { AnalyzeResponse, Code, CodeType, SearchResponse } from '../types.ts';
 
@@ -168,6 +167,7 @@ const SYNONYM_MAP: Record<string, string[]> = {
 async function getEmbedder() {
   if (!embedder) {
     console.log('[Embedder] Initializing local all-MiniLM-L6-v2 model...');
+    const { pipeline } = await import('@xenova/transformers');
     embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
     console.log('[Embedder] Local all-MiniLM-L6-v2 model initialized successfully.');
   }
