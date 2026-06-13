@@ -53,6 +53,8 @@ const CODES_DATABASE: Code[] = [
   { id: 36, code: 'J3490', type: CodeType.HCPCS, description: 'Unclassified drugs (often used for medication injections in the clinic)', category: 'Drugs Administered Other Than Oral Method' },
 ];
 
+let memoryCodes: Code[] = [...CODES_DATABASE];
+
 export interface DbInterface {
   all: (sql: string, params?: any[]) => Promise<any[]>;
   get: (sql: string, params?: any[]) => Promise<any>;
@@ -61,32 +63,53 @@ export interface DbInterface {
 // Emulate simple DB queries on top of typescript arrays to avoid binary node-sqlite dependencies
 const memoryDb: DbInterface = {
   async all(sql: string, params?: any[]): Promise<any[]> {
-    if (sql.includes('SELECT * FROM codes ORDER BY')) {
-      return [...CODES_DATABASE];
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+
+    if (normalizedSql.includes('SELECT type, COUNT(*) as count FROM codes GROUP BY type')) {
+      const counts = new Map<string, number>();
+      for (const code of memoryCodes) {
+        counts.set(code.type, (counts.get(code.type) || 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([type, count]) => ({ type, count }));
+    }
+
+    if (normalizedSql.includes('SELECT * FROM codes ORDER BY')) {
+      return [...memoryCodes]
+        .sort((a, b) => `${a.type}:${a.code}`.localeCompare(`${b.type}:${b.code}`))
+        .slice(0, 150);
     }
     
-    if (sql.includes('SELECT * FROM codes WHERE')) {
-      if (!params || params.length === 0) return [...CODES_DATABASE];
+    if (normalizedSql.includes('SELECT * FROM codes WHERE')) {
+      if (!params || params.length === 0) return [...memoryCodes];
       // Get all clean search values
       const searchVals = params.map(p => typeof p === 'string' ? p.replace(/%/g, '').toLowerCase() : '').filter(Boolean);
-      if (searchVals.length === 0) return [...CODES_DATABASE];
+      if (searchVals.length === 0) return [...memoryCodes];
 
       // Match items that contain ANY of the search values
-      return CODES_DATABASE.filter(c => 
+      const matches = memoryCodes.filter(c =>
         searchVals.some(val => 
           c.code.toLowerCase().includes(val) || 
           c.description.toLowerCase().includes(val) || 
           c.category.toLowerCase().includes(val)
         )
       );
+      const limitMatch = normalizedSql.match(/LIMIT\s+(\d+)/i);
+      const limit = limitMatch ? Number(limitMatch[1]) : matches.length;
+      return matches.slice(0, limit);
     }
 
-    return [...CODES_DATABASE];
+    if (normalizedSql.includes('SELECT * FROM codes LIMIT')) {
+      const limitMatch = normalizedSql.match(/LIMIT\s+(\d+)/i);
+      const limit = limitMatch ? Number(limitMatch[1]) : memoryCodes.length;
+      return memoryCodes.slice(0, limit);
+    }
+
+    return [...memoryCodes];
   },
 
   async get(sql: string, params?: any[]): Promise<any> {
     if (sql.includes('COUNT(*)')) {
-      return { count: CODES_DATABASE.length };
+      return { count: memoryCodes.length };
     }
     return null;
   }
@@ -177,6 +200,49 @@ export async function getDb(): Promise<DbInterface> {
   return activeDb;
 }
 
+function loadCsvCatalogIntoMemory(dataDir: string) {
+  const merged = new Map<string, Code>();
+  for (const item of CODES_DATABASE) {
+    merged.set(`${item.type}:${item.code}`, item);
+  }
+
+  const icdPath = path.join(dataDir, 'icd_10_cm.csv');
+  if (fs.existsSync(icdPath)) {
+    const parsed = parseCSV(fs.readFileSync(icdPath, 'utf8'), false);
+    parsed.forEach((row, index) => {
+      merged.set(`${CodeType.ICD10}:${row.code}`, {
+        id: 100000 + index,
+        code: row.code,
+        type: CodeType.ICD10,
+        description: row.description,
+        category: 'Diagnoses',
+      });
+    });
+    console.log(`[MemoryDB] Loaded ${parsed.length} ICD-10-CM codes from CSV.`);
+  }
+
+  const cptPath = path.join(dataDir, 'cpt.csv');
+  if (fs.existsSync(cptPath)) {
+    const parsed = parseCSV(fs.readFileSync(cptPath, 'utf8'), true);
+    parsed.forEach((row, index) => {
+      const isHcpcs = /^[A-Za-z]/.test(row.code);
+      const type = isHcpcs ? CodeType.HCPCS : CodeType.CPT;
+      merged.set(`${type}:${row.code}`, {
+        id: 200000 + index,
+        code: row.code,
+        type,
+        description: row.description,
+        category: isHcpcs ? 'Drugs Administered Other Than Oral Method' : 'Evaluation and Management Services',
+      });
+    });
+    console.log(`[MemoryDB] Loaded ${parsed.length} CPT/HCPCS codes from CSV.`);
+  }
+
+  memoryCodes = Array.from(merged.values());
+  activeDb = memoryDb;
+  console.log(`[MemoryDB] Fully operational in-memory catalog initialized with ${memoryCodes.length} codes.`);
+}
+
 export async function initDb() {
   const bundledDbFile = path.resolve(process.cwd(), 'clinical_coding.db');
   const isVercelRuntime = process.env.VERCEL === '1';
@@ -184,6 +250,11 @@ export async function initDb() {
   let usingBundledDbCopy = false;
   
   try {
+    if (isVercelRuntime) {
+      loadCsvCatalogIntoMemory(path.resolve(process.cwd(), 'data'));
+      return;
+    }
+
     if (isVercelRuntime && fs.existsSync(bundledDbFile)) {
       if (!fs.existsSync(dbFile)) {
         fs.copyFileSync(bundledDbFile, dbFile);

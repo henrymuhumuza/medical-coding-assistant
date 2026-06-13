@@ -432,6 +432,16 @@ export async function analyzeClinicalText(note: string): Promise<AnalyzeResponse
     return { diagnoses: [], procedures: [], explanation: 'No matching code records were found for that search.' };
   }
 
+  if (process.env.VERCEL === '1') {
+    return buildLexicalAnalyzeResponse(
+      lexicalRankedCandidates,
+      searchContext,
+      note,
+      candidates.length,
+      'Vercel is using fast local keyword ranking for serverless compatibility.'
+    );
+  }
+
   let pipelineInstance: any;
   try {
     pipelineInstance = await getEmbedder();
