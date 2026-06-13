@@ -100,6 +100,8 @@ const PHRASE_ALIASES: Record<string, string[]> = {
   'high blood sugar': ['type 2 diabetes mellitus with hyperglycemia', 'type 2 diabetes mellitus', 'hyperglycemia'],
   'sugar disease': ['diabetes mellitus', 'type 2 diabetes'],
   'high blood pressure': ['hypertension', 'essential hypertension'],
+  'high cholesterol': ['hypercholesterolemia', 'pure hypercholesterolemia', 'hyperlipidemia', 'lipid disorder', 'lipid panel'],
+  'cholesterol test': ['lipid panel', 'cholesterol screening'],
   'heart attack': ['myocardial infarction', 'acute coronary syndrome'],
   'heart disease': ['coronary artery disease', 'atherosclerotic heart disease'],
   'chest pain': ['angina', 'precordial pain', 'chest pain'],
@@ -115,6 +117,7 @@ const PHRASE_ALIASES: Record<string, string[]> = {
   'ecg': ['ekg', 'electrocardiogram'],
   'a1c': ['hemoglobin a1c', 'glycosylated hemoglobin', 'diabetes monitoring'],
   'uti': ['urinary tract infection', 'urinalysis'],
+  'malaria': ['plasmodium', 'malarial', 'falciparum', 'vivax', 'malaria'],
 };
 
 const SYNONYM_MAP: Record<string, string[]> = {
@@ -143,6 +146,11 @@ const SYNONYM_MAP: Record<string, string[]> = {
   kidney: ['renal', 'nephrology', 'dialysis'],
   renal: ['kidney', 'nephrology'],
   blood: ['venous', 'blood pressure', 'hematology', 'hemoglobin', 'a1c'],
+  cholesterol: ['hypercholesterolemia', 'hyperlipidemia', 'lipid', 'lipids', 'lipid panel'],
+  hypercholesterolemia: ['cholesterol', 'hyperlipidemia', 'lipid disorder'],
+  hyperlipidemia: ['cholesterol', 'hypercholesterolemia', 'lipid disorder'],
+  lipid: ['cholesterol', 'hyperlipidemia', 'lipid panel'],
+  lipids: ['cholesterol', 'hyperlipidemia', 'lipid panel'],
   lab: ['laboratory', 'pathology', 'panel', 'test'],
   labs: ['laboratory', 'pathology', 'panel', 'test'],
   test: ['laboratory', 'screening', 'panel'],
@@ -156,6 +164,9 @@ const SYNONYM_MAP: Record<string, string[]> = {
   back: ['lumbar', 'spine', 'musculoskeletal'],
   spine: ['lumbar', 'cervical', 'thoracic', 'spinal'],
   infection: ['infective', 'colitis', 'uti', 'upper respiratory'],
+  malaria: ['plasmodium', 'malarial', 'falciparum', 'vivax'],
+  malarial: ['malaria', 'plasmodium'],
+  plasmodium: ['malaria', 'malarial'],
   depression: ['depressive', 'mood'],
   rash: ['dermatitis', 'skin', 'eruption'],
   skin: ['dermatitis', 'cutaneous'],

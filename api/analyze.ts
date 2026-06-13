@@ -1,3 +1,5 @@
+import { runSearch } from './search';
+
 function readBody(req: any) {
   if (typeof req.body === 'string') {
     try {
@@ -9,89 +11,42 @@ function readBody(req: any) {
   return req.body || {};
 }
 
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function fallbackAnalyze(note: string) {
-  const text = normalize(note);
-  const diagnoses = [];
-  const procedures = [];
-
-  if (text.includes('high blood sugar') || text.includes('diabetes') || text.includes('hyperglycemia') || text.includes('a1c')) {
-    diagnoses.push({
-      code: 'E11.65',
-      description: 'Type 2 diabetes mellitus with hyperglycemia',
-      confidence: 0.95,
-      matchedText: note.slice(0, 120),
-    });
-    diagnoses.push({
-      code: 'E11.9',
-      description: 'Type 2 diabetes mellitus without complications',
-      confidence: 0.72,
-      matchedText: note.slice(0, 120),
-    });
-  }
-
-  if (text.includes('urine test') || text.includes('urinalysis') || text.includes('uti')) {
-    procedures.push({
-      code: '81001',
-      description: 'Urinalysis, automated, with microscopy',
-      confidence: 0.92,
-      matchedText: note.slice(0, 120),
-    });
-  }
-
-  if (text.includes('a1c')) {
-    procedures.push({
-      code: '83036',
-      description: 'Hemoglobin; glycosylated (A1c) lab monitoring',
-      confidence: 0.9,
-      matchedText: note.slice(0, 120),
-    });
-  }
-
-  return {
-    diagnoses,
-    procedures,
-    explanation: 'Fallback code search returned matches while the Turso-backed search was unavailable.',
-  };
-}
-
-function hasAnalyzeResults(result: any) {
-  return Boolean(result?.diagnoses?.length || result?.procedures?.length);
-}
-
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { note } = readBody(req);
-  if (!note || typeof note !== 'string') {
-    return res.status(400).json({ error: 'Clinical note or query string is required.' });
-  }
-
   try {
-    const { analyzeTurso } = await import('../src/vercel/tursoService.ts');
-    const result = await analyzeTurso(note);
-    if (hasAnalyzeResults(result)) {
-      return res.status(200).json(result);
+    const { note } = readBody(req);
+    if (!note || typeof note !== 'string') {
+      return res.status(400).json({ error: 'Clinical note or query string is required.' });
     }
-  } catch (error) {
-    console.error('[API /analyze] Turso unavailable; trying CSV fallback:', error);
-  }
 
-  try {
-    const { analyzeCatalog } = await import('../src/vercel/csvService.ts');
-    const result = analyzeCatalog(note);
-    if (hasAnalyzeResults(result)) {
-      return res.status(200).json(result);
-    }
-  } catch (error) {
-    console.error('[API /analyze] CSV fallback unavailable; using tiny fallback:', error);
-  }
+    const results = await runSearch(note);
+    const diagnoses = results.icd.slice(0, 25).map(r => ({
+      code: r.code,
+      description: r.description,
+      confidence: Math.max(0.28, r.score || 0.28),
+      matchedText: note.slice(0, 120),
+    }));
+    const procedures = [...results.cpt, ...results.hcpcs].slice(0, 25).map(r => ({
+      code: r.code,
+      description: r.description,
+      confidence: Math.max(0.28, r.score || 0.28),
+      matchedText: note.slice(0, 120),
+    }));
 
-  return res.status(200).json(fallbackAnalyze(note));
+    return res.status(200).json({
+      diagnoses,
+      procedures,
+      explanation: 'Turso-backed search returned the closest ICD-10, CPT, and HCPCS matches.',
+    });
+  } catch (error: any) {
+    console.error('[API /analyze] Failed:', error);
+    return res.status(500).json({
+      error: 'AI Analysis Error',
+      message: error?.message || 'Failed to complete code search. Please try again.',
+    });
+  }
 }
