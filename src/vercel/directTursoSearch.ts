@@ -1,5 +1,3 @@
-import { createClient } from '@libsql/client';
-
 type CodeType = 'ICD10' | 'CPT' | 'HCPCS';
 
 export interface CodeRecord {
@@ -87,6 +85,7 @@ async function fetchRows(query: string): Promise<CodeRecord[]> {
   const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
   if (!url || !authToken) throw new Error('Turso environment variables are missing.');
 
+  const { createClient } = await import('@libsql/client');
   const client = createClient({ url, authToken });
   const { normalized, terms } = expandQuery(query);
   const clauses: string[] = [];
