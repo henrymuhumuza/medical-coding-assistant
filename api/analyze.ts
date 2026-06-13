@@ -1,4 +1,4 @@
-import { runDirectTursoSearch } from '../src/vercel/directTursoSearch.ts';
+import { runDeepSeekCodeSearch } from '../src/vercel/deepseekAnalyzer.ts';
 
 function readBody(req: any) {
   if (typeof req.body === 'string') {
@@ -23,30 +23,12 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Clinical note or query string is required.' });
     }
 
-    const results = await runDirectTursoSearch(note);
-    const diagnoses = results.icd.slice(0, 25).map(r => ({
-      code: r.code,
-      description: r.description,
-      confidence: Math.max(0.28, r.score || 0.28),
-      matchedText: note.slice(0, 120),
-    }));
-    const procedures = [...results.cpt, ...results.hcpcs].slice(0, 25).map(r => ({
-      code: r.code,
-      description: r.description,
-      confidence: Math.max(0.28, r.score || 0.28),
-      matchedText: note.slice(0, 120),
-    }));
-
-    return res.status(200).json({
-      diagnoses,
-      procedures,
-      explanation: 'Turso-backed search returned the closest ICD-10, CPT, and HCPCS matches.',
-    });
+    return res.status(200).json(await runDeepSeekCodeSearch(note));
   } catch (error: any) {
-    console.error('[API /analyze] Failed:', error);
+    console.error('[API /analyze] DeepSeek search failed:', error);
     return res.status(500).json({
       error: 'AI Analysis Error',
-      message: error?.message || 'Failed to complete code search. Please try again.',
+      message: error?.message || 'Failed to complete DeepSeek code search. Please try again.',
     });
   }
 }

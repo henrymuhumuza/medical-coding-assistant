@@ -39,7 +39,7 @@ export default function App() {
       setResults(data);
     } catch (err: any) {
       console.error('Extraction error:', err);
-      setErrorText(err.message || 'An error occurred during semantic search.');
+      setErrorText(err.message || 'An error occurred during AI search.');
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +56,7 @@ export default function App() {
       setResults(data);
     } catch (err: any) {
       console.error('Preset extraction error:', err);
-      setErrorText(err.message || 'An error occurred during semantic search.');
+      setErrorText(err.message || 'An error occurred during AI search.');
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +111,7 @@ export default function App() {
               Medical Coding Assistant
             </h1>
             <p className="font-mono text-[10px] text-[#78786a] uppercase tracking-wider">
-              ICD-10 | CPT | HCPCS | AI Semantic Search
+              ICD-10 | CPT | HCPCS | AI Search
             </p>
             </div>
           </div>
@@ -228,7 +228,7 @@ export default function App() {
             MEDICAL CODING ASSISTANT
           </div>
           <div className="flex items-center gap-3">
-            <span>Local Semantic Search · ICD-10 · CPT · HCPCS</span>
+            <span>Local Code Search · ICD-10 · CPT · HCPCS</span>
           </div>
         </div>
       </footer>

@@ -73,7 +73,7 @@ export default function AnalysisResults({
         <div className="flex items-start justify-between border-b border-[#cbcbbf] pb-3" id="results-meta-header">
           <div className="space-y-0.5">
             <span className="font-mono text-[9px] text-[#78786a] font-semibold uppercase tracking-wider block">
-              AI Semantic Search Results
+              AI Search Results
             </span>
             <h2 className="font-heading text-lg font-bold text-[#1a1a18] flex items-center gap-1.5">
               <ShieldCheck className="w-5.5 h-5.5 text-[#1a1a18] stroke-[1.5]" />

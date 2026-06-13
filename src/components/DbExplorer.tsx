@@ -90,7 +90,7 @@ export default function DbExplorer() {
             Clinical Code Database Inventory
           </h2>
           <p className="text-xs text-[#78786a] leading-relaxed">
-            Directly browse local medical code definitions or trigger simulated lexical searches against the SQLite directory.
+            Search the medical code database directly.
           </p>
         </div>
       </div>

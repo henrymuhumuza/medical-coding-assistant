@@ -9,11 +9,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import {
-  analyzeClinicalText,
   ensureDbReady,
   getCodesInventory,
-  searchCodesByQuery,
 } from './src/backend/codingService.ts';
+import { runDeepSeekCodeSearch } from './src/vercel/deepseekAnalyzer.ts';
+import { runDirectTursoSearch } from './src/vercel/directTursoSearch.ts';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -39,7 +39,7 @@ app.post('/api/search', async (req: Request, res: Response, next: NextFunction) 
       return;
     }
 
-    res.json(await searchCodesByQuery(query));
+    res.json(await runDirectTursoSearch(query));
   } catch (error) {
     next(error);
   }
@@ -53,12 +53,12 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(await analyzeClinicalText(note));
+    res.json(await runDeepSeekCodeSearch(note));
   } catch (error: any) {
-    console.error('[Embedder] Semantic search failed:', error);
+    console.error('[DeepSeek] AI search failed:', error);
     res.status(500).json({
       error: 'AI Analysis Error',
-      message: error?.message || 'Failed to complete semantic search. Please try again.',
+      message: error?.message || 'Failed to complete DeepSeek code search. Please try again.',
     });
   }
 });
